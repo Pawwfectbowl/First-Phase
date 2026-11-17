@@ -1,0 +1,8 @@
+{
+  "name": "Pawfect Bowl",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "forwardPorts": [3000],
+  "portsAttributes": { "3000": { "label": "Pawfect Bowl", "onAutoForward": "openPreview" } },
+  "postCreateCommand": "npm install",
+  "postAttachCommand": "npm start"
+}
