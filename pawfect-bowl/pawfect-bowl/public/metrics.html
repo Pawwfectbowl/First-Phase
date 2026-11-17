@@ -1,0 +1,6 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PM Dashboard</title>
+<style>body{font-family:system-ui;max-width:640px;margin:20px auto;padding:0 16px}.k{display:inline-block;margin:8px 16px 8px 0}.k b{font-size:26px;display:block}.bar{background:#e07a2f;color:#fff;padding:6px;margin:6px 0;border-radius:6px;white-space:nowrap}</style></head>
+<body><h2>📊 Funnel & KPIs</h2><div id="o"></div><script>
+fetch('/api/metrics').then(r=>r.json()).then(m=>{const mx=Math.max(1,m.funnel[0].sessions);
+o.innerHTML=`<div class="k"><b>${m.orders}</b>Orders</div><div class="k"><b>₹${m.aov}</b>AOV</div><div class="k"><b>₹${m.gmv}</b>GMV</div><div class="k"><b>${Math.round(m.avg_plan)}d</b>Avg plan</div>`+
+m.funnel.map(f=>`<div class="bar" style="width:${Math.max(18,100*f.sessions/mx)}%">${f.step}: ${f.sessions} (${f.conv_from_prev}%)</div>`).join('')})</script></body></html>

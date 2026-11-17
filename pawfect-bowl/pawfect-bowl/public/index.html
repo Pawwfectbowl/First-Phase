@@ -1,0 +1,36 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pawfect Bowl</title>
+<style>:root{--bg:#fff8f0;--ink:#2b2118;--acc:#e07a2f;--card:#fff;--mut:#7a6a5c}@media(prefers-color-scheme:dark){:root{--bg:#1b1511;--ink:#f6ece2;--card:#272019;--mut:#b5a595}}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:var(--bg);color:var(--ink)}main{max-width:640px;margin:auto;padding:20px}
+.card{background:var(--card);border-radius:14px;padding:18px;margin:14px 0;box-shadow:0 1px 6px #0002}button{background:var(--acc);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-size:16px;cursor:pointer}
+input,select{width:100%;padding:10px;margin:6px 0 12px;border-radius:8px;border:1px solid #8885;background:var(--bg);color:var(--ink)}.opt{display:block;border:2px solid #8883;border-radius:10px;padding:12px;margin:8px 0;cursor:pointer}.opt.sel{border-color:var(--acc)}
+.steps{color:var(--mut);font-size:14px}.big{font-size:28px;font-weight:700}table{width:100%}td{padding:4px 0}</style></head><body><main id="app"></main>
+<script>
+const sid=Math.random().toString(36).slice(2),S={step:0,dog:{activity:'normal'},addOns:[],plan:7,base:'Rice'};let C;
+const track=(name,props)=>fetch('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,name,props})});
+const api=(u,b)=>fetch(u,b&&{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}).then(r=>r.json());
+const $=h=>document.getElementById('app').innerHTML=h, inr=n=>'₹'+n.toLocaleString('en-IN');
+async function init(){C=await api('/api/catalog');track('view_home');go(0)}
+async function go(n){S.step=n;const names=['Welcome','Your dog','Pick a meal','Customise','Checkout','Done'];
+ const head=`<h2>🐾 Pawfect Bowl</h2><p class="steps">Step ${n+1}/6 · ${names[n]}</p>`;
+ if(n==0)$(head+`<div class="card"><div class="big">Fresh meals. Happier bowls.</div><p>Sized to your dog's calories. From ₹249/meal.</p><button onclick="go(1)">Build my dog's meal</button></div>`);
+ if(n==1)$(head+`<div class="card"><label>Dog's name</label><input id="dn" value="${S.dog.name||''}"><label>Weight (kg)</label><input id="dw" type="number" value="${S.dog.weight_kg||''}">
+  <label>Activity</label><select id="da"><option value="low">Low</option><option value="normal" selected>Normal</option><option value="high">High</option></select>
+  <label>Allergies (optional)</label><input id="dl"><button onclick="saveDog()">Continue</button><p id="err" style="color:#d33"></p></div>`);
+ if(n==2)$(head+`<p>${S.dog.name} needs ~<b>${S.kcal} kcal/day</b>.</p>`+C.meals.map(m=>`<label class="opt ${S.meal==m.id?'sel':''}" onclick="S.meal=${m.id};track('meal_selected',{meal:${m.id}});go(2)"><b>${m.name}</b> · ${inr(m.price_per_meal)}/meal<br><small>${m.ingredients}</small></label>`).join('')+`<button onclick="S.meal?go(3):alert('Pick a meal')">Next</button>`);
+ if(n==3){const q=await quote();$(head+`<div class="card"><b>Base</b><select onchange="S.base=this.value">${C.bases.map(b=>`<option ${S.base==b?'selected':''}>${b}</option>`).join('')}</select>
+  <b>Add-ons</b>${C.addOns.map(a=>`<label class="opt ${S.addOns.includes(a.id)?'sel':''}" onclick="tog(${a.id})">${a.name} +${inr(a.price)}</label>`).join('')}
+  <b>Plan</b><select onchange="S.plan=+this.value;go(3)">${Object.entries(C.plans).map(([d,p])=>`<option value="${d}" ${S.plan==d?'selected':''}>${d} days${p?` (save ${p}%)`:''}</option>`).join('')}</select>
+  <table><tr><td>Portion</td><td align=right>${q.gramsPerMeal} g × 2/day</td></tr><tr><td>Subtotal</td><td align=right>${inr(q.subtotal)}</td></tr><tr><td>Discount</td><td align=right>-${inr(q.discount)}</td></tr><tr><td><b>Total</b></td><td align=right><b>${inr(q.total)}</b></td></tr></table>
+  <button onclick="track('checkout_started');go(4)">Checkout</button></div>`)}
+ if(n==4)$(head+`<div class="card"><label>Your name</label><input id="cn"><label>Phone</label><input id="cp"><label>Delivery address</label><input id="ca"><button onclick="pay()">Pay (test mode)</button><p id="err" style="color:#d33"></p></div>`);
+ if(n==5)track_order()}
+const tog=id=>{S.addOns=S.addOns.includes(id)?S.addOns.filter(x=>x!=id):[...S.addOns,id];go(3)};
+const quote=()=>api('/api/quote',{mealId:S.meal,addOnIds:S.addOns,planDays:S.plan,kcal:S.kcal});
+async function saveDog(){const d={name:dn.value.trim(),weight_kg:+dw.value,activity:da.value,allergies:dl.value};
+ const r=await api('/api/recommend',d);if(r.error||!d.name)return err.textContent=r.error||'Enter dog name';S.dog=d;S.kcal=r.daily_kcal;track('dog_profile_done');go(2)}
+async function pay(){const r=await api('/api/orders',{customer:{name:cn.value,phone:cp.value},dog:S.dog,mealId:S.meal,base:S.base,addOnIds:S.addOns,planDays:S.plan,address:ca.value});
+ if(r.error)return err.textContent=r.error;S.order=r.orderId;track('order_placed',{total:r.total});go(5)}
+async function track_order(){const o=await api('/api/orders/'+S.order);
+ $(`<h2>🎉 Order #${o.id} confirmed</h2><div class="card"><div class="big">${o.status}</div><p>${o.meal} for ${o.dog} · ${o.plan_days} days · ${inr(o.total)}</p><small>Demo: status advances over a few minutes.</small><br><br><button onclick="track_order()">Refresh status</button></div><p><a href="/metrics.html">PM dashboard →</a></p>`)}
+init();
+</script></body></html>
